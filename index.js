@@ -1,6 +1,7 @@
 const express = require('express')
 const app = express()
 const cors = require('cors')
+const SSLCommerzPayment = require('sslcommerz-lts')
 require('dotenv').config()
 const jwt = require('jsonwebtoken')
 const stripe = require("stripe")(process.env.STRIPE);
@@ -10,8 +11,9 @@ console.log(process.env.STRIPE)
 
 app.use(cors())
 app.use(express.json())
-
-
+const store_id = 'resta666daca9d87f0'
+const store_passwd = 'resta666daca9d87f0@ssl'
+const is_live = false 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.l4anbhy.mongodb.net/?retryWrites=true&w=majority`
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -263,6 +265,7 @@ async function run() {
         { expiresIn: '1h' })
         res.send(token)
     })
+    
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
