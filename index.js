@@ -158,6 +158,7 @@ async function run() {
     })
     app.get('/selfuser',async(req,res)=>{
       const email = req.query.email
+      console.log(email)
       const query = {email:email}
       const result = await userCollection.findOne(query)
       res.send(result)
@@ -216,12 +217,13 @@ async function run() {
       console.log('payment',payments)
       res.send({result,deletedResult})
     })
-    app.get('/payment/:email',verifyToken,async(req,res)=>{
+    app.get('/payment/:email',async(req,res)=>{
+      // console.log(req.params.email)
       const email = req.params.email;
-      if(!req.query.email==req.decoded.email)
-      {
-        return res.status(403).send({message:"forbiden email"})
-      }
+      // if(!req.query.email==req.decoded.email)
+      // {
+      //   return res.status(403).send({message:"forbiden email"})
+      // }
       const query = {email:email}
       const result = await PaymentCollection.find(query).toArray()
       res.send(result)
@@ -265,7 +267,93 @@ async function run() {
         { expiresIn: '1h' })
         res.send(token)
     })
-    
+    const tran_id = new ObjectId().toString()
+    app.post("/order",async(req,res)=>{
+      const payments = req.body
+      const data = {
+        total_amount: req.body.price,
+        currency: 'BDT',
+        tran_id: tran_id, // use unique tran_id for each api call
+        success_url: `http://localhost:5000/payment/success/${tran_id}`,
+        fail_url: `http://localhost:5000/payment/fail/${tran_id}`,
+        cancel_url: `http://localhost:5000/payment/cancel/${tran_id}`,
+        ipn_url: `http://localhost:5000/payment/ipn/${tran_id}`,
+        shipping_method: 'Courier',
+        product_name: req.body.itemNames,
+        product_category: 'Electronic',
+        product_profile: 'general',
+        cus_name: req.body.name,
+        cus_email: req.body.email,
+        cus_add1: req.body.address,
+        cus_add2: 'Dhaka',
+        cus_city: 'Dhaka',
+        cus_state: 'Dhaka',
+        cus_postcode: req.body.postalCode,
+        cus_country: 'Bangladesh',
+        cus_phone: req.body.phone,
+        cus_fax: '01711111111',
+        ship_name: 'Customer Name',
+        ship_add1: 'Dhaka',
+        ship_add2: 'Dhaka',
+        ship_city: 'Dhaka',
+        ship_state: 'Dhaka',
+        ship_postcode: 1000,
+        ship_country: 'Bangladesh',
+    };
+    const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live)
+    sslcz.init(data).then(async apiResponse => {
+        // Redirect the user to payment gateway
+        let GatewayPageURL = apiResponse.GatewayPageURL
+        res.send({url:GatewayPageURL})
+        
+        const findorder = {
+          ...req.body,
+          transactionID: tran_id,
+          order: false
+        }
+        const result = await PaymentCollection.insertOne(findorder)
+    });
+    app.post("/payment/success/:tran_id", async(req,res)=>{
+      
+      const result = await PaymentCollection.updateOne({transactionID: req.params.tran_id},{
+        $set:{
+          order: true
+        }
+      })
+      if(result.modifiedCount>0){
+        console.log(payments)
+        const query = {_id: {$in: payments.cardId.map(id=> new ObjectId(id))}}
+        const deletedResult = await CardCollection.deleteMany(query)
+        res.redirect(`http://localhost:5173/payment/success/${req.params.tran_id}`)
+      }
+    })
+    app.post("/payment/fail/:tran_id",async(req,res)=>{
+      const result = await PaymentCollection.deleteOne({transactionID: req.params.tran_id})
+      console.log(tran_id)
+      if(result.deletedCount>0){
+        res.redirect(`http://localhost:5173/payment/fail/${req.params.tran_id}`)
+      }
+    })
+    app.post("/payment/cancel/:tran_id",async(req,res)=>{
+      const result = await PaymentCollection.deleteOne({transactionID: req.params.tran_id})
+      console.log(result)
+      if(result.deletedCount>0){
+        res.redirect(`http://localhost:5173/payment/fail/${req.params.tran_id}`)
+      }
+    })
+    app.post("/payment/ipn/:tran_id",async(req,res)=>{
+      const result = await PaymentCollection.deleteOne({transactionID: req.params.tran_id})
+      if(result.deletedCount>0){
+        res.redirect(`http://localhost:5173/payment/fail/${req.params.tran_id}`)
+      }
+    })
+
+    })
+    app.get("/getsuccess/:id",async(req,res)=>{
+      const result = await PaymentCollection.findOne({transactionID: req.params.id})
+      res.send(result)
+    })
+
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
