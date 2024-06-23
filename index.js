@@ -7,8 +7,6 @@ const jwt = require('jsonwebtoken')
 const stripe = require("stripe")(process.env.STRIPE);
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const port = process.env.PORT || 5000
-console.log(process.env.STRIPE)
-
 app.use(cors())
 app.use(express.json())
 const store_id = 'resta666daca9d87f0'
@@ -214,7 +212,7 @@ async function run() {
       const query = {_id: {$in: payments.cardId.map(id=> new ObjectId(id))}
       }
       const deletedResult = await CardCollection.deleteMany(query)
-      console.log('payment',payments)
+      
       res.send({result,deletedResult})
     })
     app.get('/payment/:email',async(req,res)=>{
@@ -302,7 +300,6 @@ async function run() {
     };
     const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live)
     sslcz.init(data).then(async apiResponse => {
-        // Redirect the user to payment gateway
         let GatewayPageURL = apiResponse.GatewayPageURL
         res.send({url:GatewayPageURL})
         
@@ -371,3 +368,5 @@ app.get('/', (req, res) => {
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
 })
+
+
