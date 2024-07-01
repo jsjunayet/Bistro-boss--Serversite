@@ -265,6 +265,7 @@ async function run() {
         { expiresIn: '1h' })
         res.send(token)
     })
+    const BASE_URL = process.env.NODE_ENV === 'development' ? process.env.LOCAL_BASE_URL : process.env.PROD_BASE_URL;
     const tran_id = new ObjectId().toString()
     app.post("/order",async(req,res)=>{
       const payments = req.body
@@ -272,10 +273,10 @@ async function run() {
         total_amount: req.body.price,
         currency: 'BDT',
         tran_id: tran_id, // use unique tran_id for each api call
-        success_url: `http://localhost:5000/payment/success/${tran_id}`,
-        fail_url: `http://localhost:5000/payment/fail/${tran_id}`,
-        cancel_url: `http://localhost:5000/payment/cancel/${tran_id}`,
-        ipn_url: `http://localhost:5000/payment/ipn/${tran_id}`,
+        success_url: `https://final-project-back-six.vercel.app/payment/success/${tran_id}`,
+        fail_url: `https://final-project-back-six.vercel.app/payment/fail/${tran_id}`,
+        cancel_url: `https://final-project-back-six.vercel.app/payment/cancel/${tran_id}`,
+        ipn_url: `https://final-project-back-six.vercel.app/payment/ipn/${tran_id}`,
         shipping_method: 'Courier',
         product_name: req.body.itemNames,
         product_category: 'Electronic',
@@ -321,27 +322,27 @@ async function run() {
         console.log(payments)
         const query = {_id: {$in: payments.cardId.map(id=> new ObjectId(id))}}
         const deletedResult = await CardCollection.deleteMany(query)
-        res.redirect(`http://localhost:5173/payment/success/${req.params.tran_id}`)
+        res.redirect(`https://junayetrestaurantwebsite.netlify.app/payment/success/${req.params.tran_id}`)
       }
     })
     app.post("/payment/fail/:tran_id",async(req,res)=>{
       const result = await PaymentCollection.deleteOne({transactionID: req.params.tran_id})
       console.log(tran_id)
       if(result.deletedCount>0){
-        res.redirect(`http://localhost:5173/payment/fail/${req.params.tran_id}`)
+        res.redirect(`https://junayetrestaurantwebsite.netlify.app/payment/fail/${req.params.tran_id}`)
       }
     })
     app.post("/payment/cancel/:tran_id",async(req,res)=>{
       const result = await PaymentCollection.deleteOne({transactionID: req.params.tran_id})
       console.log(result)
       if(result.deletedCount>0){
-        res.redirect(`http://localhost:5173/payment/fail/${req.params.tran_id}`)
+        res.redirect(`https://junayetrestaurantwebsite.netlify.app/payment/fail/${req.params.tran_id}`)
       }
     })
     app.post("/payment/ipn/:tran_id",async(req,res)=>{
       const result = await PaymentCollection.deleteOne({transactionID: req.params.tran_id})
       if(result.deletedCount>0){
-        res.redirect(`http://localhost:5173/payment/fail/${req.params.tran_id}`)
+        res.redirect(`https://junayetrestaurantwebsite.netlify.app/payment/fail/${req.params.tran_id}`)
       }
     })
 
@@ -349,6 +350,36 @@ async function run() {
     app.get("/getsuccess/:id",async(req,res)=>{
       const result = await PaymentCollection.findOne({transactionID: req.params.id})
       res.send(result)
+    })
+    app.get('/payments', async(req,res)=>{
+      const result = await PaymentCollection.find().toArray()
+      res.send(result)
+    })
+    app.patch('/update/panding/:id',async(req,res)=>{
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)}
+      console.log(query)
+      const updatedDoc = {
+        $set :
+        {
+          status : 'delivered'
+        }
+      }
+      const result = await PaymentCollection.updateOne(query,updatedDoc)
+      res.send(result) 
+    })
+    app.patch('/update/delivered/:id',async(req,res)=>{
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)}
+      console.log(query)
+      const updatedDoc = {
+        $set :
+        {
+          status : 'pending'
+        }
+      }
+      const result = await PaymentCollection.updateOne(query,updatedDoc)
+      res.send(result) 
     })
 
     await client.db("admin").command({ ping: 1 });
